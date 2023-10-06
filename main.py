@@ -1,5 +1,5 @@
 import pygame
-from pygame.locals import K_UP, K_DOWN, K_LEFT, K_RIGHT, K_ESCAPE, KEYDOWN, QUIT, RLEACCEL, K_SPACE
+from pygame.locals import K_UP, K_DOWN, K_LEFT, K_RIGHT, K_ESCAPE, KEYDOWN, QUIT, RLEACCEL, K_SPACE, K_r
 from qiskit.visualization import plot_bloch_vector
 import matplotlib.pyplot as plt
 import io
@@ -66,7 +66,7 @@ class Bomb():
         self.quantum_state = np.real_if_close(self.quantum_state)
 
     def measurement(self):
-        probability = np.power(np.abs(self.quantum_state[0]),2)
+        probability = np.power(np.abs(self.quantum_state[1]),2)
         measurement_result = int(np.random.binomial(1, probability))
         return(measurement_result)
 
@@ -88,8 +88,10 @@ class Qubit(pygame.sprite.Sprite):
         self.surf = pygame.image.load(buffer).convert()
         self.rect = self.surf.get_rect(topright=(SCREEN_WIDTH,0))
 
-gates_ids = {'H':5, 'X':6, 'RY3':7, 'RY4':8, 'RZ2':9}
+gates_ids = {'E':2, 'M':4, 'H':5, 'X':6, 'RY3':7, 'RY4':8, 'RZ2':9}
 gates_matrices = {
+    'E':None,
+    'M':None,
     'H':1/np.sqrt(2)*np.array([[1,1],[1,-1]]),
     'X':np.array([[0,1],[1,0]]),
     'RY3':np.array([[np.cos(np.pi/6),-np.sin(np.pi/6)],[np.sin(np.pi/6),np.cos(np.pi/6)]]),
@@ -106,6 +108,19 @@ class Gate(pygame.sprite.Sprite):
         self.surf = pygame.image.load('imgs/gates/'+gate_type+'.png')
         self.rect = self.surf.get_rect(center=center)
 
+class Explosion(pygame.sprite.Sprite):
+    def __init__(self):
+        super(Explosion, self).__init__()
+        self.surf = pygame.image.load('imgs/explosion.png').convert()
+        self.rect = self.surf.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2))
+
+class Win(pygame.sprite.Sprite):
+    def __init__(self):
+        super(Win, self).__init__()
+        self.surf = pygame.image.load('imgs/win.png').convert()
+        self.rect = self.surf.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2))
+
+
 def state_to_coords(state):
     theta = np.real_if_close(2*np.arccos(state[0]))
     phi = np.real_if_close(np.angle(state[1]))
@@ -120,19 +135,29 @@ walls = grid_2_walls(grid, TILE_SIZE=TILE_SIZE)
 H = Gate('H', (400,200))
 X = Gate('X',(350,200))
 RZ = Gate('RZ2',(700,200))
+M = Gate('M',(900,200))
+E = Gate('E',(1000,300))
 
-H_boom = Gate('H', (500,200))
-X_boom = Gate('X',(650,200))
+# H_boom = Gate('H', (500,200))
+# X_boom = Gate('X',(650,200))
 
 bomb = Bomb()
 
+explosion = Explosion()
+win = Win()
 
 all_sprites = pygame.sprite.Group()
 gates = pygame.sprite.Group()
 all_sprites.add(player)
+
 all_sprites.add(H)
 all_sprites.add(X)
 all_sprites.add(RZ)
+all_sprites.add(M)
+all_sprites.add(E)
+
+
+
 for w in walls:
     all_sprites.add(w)
 all_sprites.add(qubit)
@@ -140,7 +165,11 @@ all_sprites.add(qubit)
 gates.add(H)
 gates.add(X)
 gates.add(RZ)
+gates.add(M)
+gates.add(E)
 
+exploded = False
+winner = False
 
 clock = pygame.time.Clock()
 
@@ -155,12 +184,15 @@ while running:
         elif event.type == KEYDOWN:
             if event.key == K_ESCAPE:
                 running = False
-            if event.key == K_SPACE:
-                if bomb.measurement():
-                    all_sprites.add(H_boom)
-                    bomb = Bomb()
-                else:
-                    all_sprites.add(X_boom)
+            if event.key == K_r:
+                # RESTART
+                pass
+            # if event.key == K_SPACE:
+            #     if bomb.measurement():
+            #         all_sprites.add(H_boom)
+            #         bomb = Bomb()
+            #     else:
+            #         all_sprites.add(X_boom)
 
 
     pressed_keys = pygame.key.get_pressed()
@@ -186,10 +218,30 @@ while running:
 
     gate_pass = pygame.sprite.spritecollideany(player, gates)
     if gate_pass:
-        bomb.update_state(gate_pass.matrix)
+        if gate_pass.gate_type == 'M':
+            if bomb.measurement():
+                exploded = True
+                bomb.quantum_state = np.array([0,1])
+            else:
+                bomb.quantum_state = np.array([1,0])
+        elif gate_pass.gate_type == 'E':
+            if bomb.measurement():
+                exploded = True
+                bomb.quantum_state = np.array([0,1])
+            else:
+                bomb.quantum_state = np.array([1,0])
+                winner = True
+        else:
+            bomb.update_state(gate_pass.matrix)
+
         qubit.coords = state_to_coords(bomb.quantum_state)
         qubit.reLoadImage()
         gate_pass.kill()
+
+    if exploded:
+        screen.blit(explosion.surf, explosion.rect)
+    if winner:
+        screen.blit(win.surf, win.rect)
 
     pygame.display.flip()
 
