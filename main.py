@@ -1,4 +1,5 @@
 import pygame
+import pygame_menu
 from pygame.locals import K_UP, K_DOWN, K_LEFT, K_RIGHT, K_ESCAPE, KEYDOWN, QUIT, RLEACCEL, K_SPACE, K_r
 from qiskit.visualization import plot_bloch_vector
 import matplotlib.pyplot as plt
@@ -126,126 +127,133 @@ def state_to_coords(state):
     phi = np.real_if_close(np.angle(state[1]))
     return [theta, phi]
 
-player = Player()
-qubit = Qubit()
+def game_main_loop():
+    player = Player()
+    qubit = Qubit()
 
-grid = generate_grid(NUMBER_OF_TILES_X=NUMBER_OF_TILES_X, NUMBER_OF_TILES_Y=NUMBER_OF_TILES_Y)
-walls = grid_2_walls(grid, TILE_SIZE=TILE_SIZE)
+    grid = generate_grid(NUMBER_OF_TILES_X=NUMBER_OF_TILES_X, NUMBER_OF_TILES_Y=NUMBER_OF_TILES_Y)
+    walls = grid_2_walls(grid, TILE_SIZE=TILE_SIZE)
 
-H = Gate('H', (400,200))
-X = Gate('X',(350,200))
-RZ = Gate('RZ2',(700,200))
-M = Gate('M',(900,200))
-E = Gate('E',(1000,300))
+    H = Gate('H', (400,200))
+    X = Gate('X',(350,200))
+    RZ = Gate('RZ2',(700,200))
+    M = Gate('M',(900,200))
+    E = Gate('E',(1000,300))
 
-# H_boom = Gate('H', (500,200))
-# X_boom = Gate('X',(650,200))
+    # H_boom = Gate('H', (500,200))
+    # X_boom = Gate('X',(650,200))
 
-bomb = Bomb()
+    bomb = Bomb()
 
-explosion = Explosion()
-win = Win()
+    explosion = Explosion()
+    win = Win()
 
-all_sprites = pygame.sprite.Group()
-gates = pygame.sprite.Group()
-all_sprites.add(player)
+    all_sprites = pygame.sprite.Group()
+    gates = pygame.sprite.Group()
+    all_sprites.add(player)
 
-all_sprites.add(H)
-all_sprites.add(X)
-all_sprites.add(RZ)
-all_sprites.add(M)
-all_sprites.add(E)
+    all_sprites.add(H)
+    all_sprites.add(X)
+    all_sprites.add(RZ)
+    all_sprites.add(M)
+    all_sprites.add(E)
 
 
 
-for w in walls:
-    all_sprites.add(w)
-all_sprites.add(qubit)
+    for w in walls:
+        all_sprites.add(w)
+    all_sprites.add(qubit)
 
-gates.add(H)
-gates.add(X)
-gates.add(RZ)
-gates.add(M)
-gates.add(E)
+    gates.add(H)
+    gates.add(X)
+    gates.add(RZ)
+    gates.add(M)
+    gates.add(E)
 
-exploded = False
-winner = False
+    exploded = False
+    winner = False
 
-clock = pygame.time.Clock()
+    clock = pygame.time.Clock()
 
-running = True
+    running = True
 
-while running:
+    while running:
 
-    for event in pygame.event.get():
-        if event.type == QUIT:
-            running = False
-
-        elif event.type == KEYDOWN:
-            if event.key == K_ESCAPE:
+        for event in pygame.event.get():
+            if event.type == QUIT:
                 running = False
-            if event.key == K_r:
-                # RESTART
-                pass
-            # if event.key == K_SPACE:
-            #     if bomb.measurement():
-            #         all_sprites.add(H_boom)
-            #         bomb = Bomb()
-            #     else:
-            #         all_sprites.add(X_boom)
+
+            elif event.type == KEYDOWN:
+                if event.key == K_ESCAPE:
+                    running = False
+                if event.key == K_r:
+                    # RESTART
+                    pass
+                # if event.key == K_SPACE:
+                #     if bomb.measurement():
+                #         all_sprites.add(H_boom)
+                #         bomb = Bomb()
+                #     else:
+                #         all_sprites.add(X_boom)
 
 
-    pressed_keys = pygame.key.get_pressed()
+        pressed_keys = pygame.key.get_pressed()
 
 
-    #---------------
-    old_pos = player.rect.center
-    player.update_horizontal(pressed_keys)
-    wall_collision_horizontal = pygame.sprite.spritecollideany(player, walls)
-    if(wall_collision_horizontal):
-        player.rect.center = old_pos
+        #---------------
+        old_pos = player.rect.center
+        player.update_horizontal(pressed_keys)
+        wall_collision_horizontal = pygame.sprite.spritecollideany(player, walls)
+        if(wall_collision_horizontal):
+            player.rect.center = old_pos
 
-    old_pos = player.rect.center
-    player.update_vertical(pressed_keys)
-    wall_collision_vertical = pygame.sprite.spritecollideany(player, walls)
-    if(wall_collision_vertical):
-        player.rect.center = old_pos
-    #---------------
+        old_pos = player.rect.center
+        player.update_vertical(pressed_keys)
+        wall_collision_vertical = pygame.sprite.spritecollideany(player, walls)
+        if(wall_collision_vertical):
+            player.rect.center = old_pos
+        #---------------
 
-    screen.fill((0,0,0))
-    for entity in all_sprites:
-        screen.blit(entity.surf, entity.rect)
+        screen.fill((0,0,0))
+        for entity in all_sprites:
+            screen.blit(entity.surf, entity.rect)
 
-    gate_pass = pygame.sprite.spritecollideany(player, gates)
-    if gate_pass:
-        if gate_pass.gate_type == 'M':
-            if bomb.measurement():
-                exploded = True
-                bomb.quantum_state = np.array([0,1])
+        gate_pass = pygame.sprite.spritecollideany(player, gates)
+        if gate_pass:
+            if gate_pass.gate_type == 'M':
+                if bomb.measurement():
+                    exploded = True
+                    bomb.quantum_state = np.array([0,1])
+                else:
+                    bomb.quantum_state = np.array([1,0])
+            elif gate_pass.gate_type == 'E':
+                if bomb.measurement():
+                    exploded = True
+                    bomb.quantum_state = np.array([0,1])
+                else:
+                    bomb.quantum_state = np.array([1,0])
+                    winner = True
             else:
-                bomb.quantum_state = np.array([1,0])
-        elif gate_pass.gate_type == 'E':
-            if bomb.measurement():
-                exploded = True
-                bomb.quantum_state = np.array([0,1])
-            else:
-                bomb.quantum_state = np.array([1,0])
-                winner = True
-        else:
-            bomb.update_state(gate_pass.matrix)
+                bomb.update_state(gate_pass.matrix)
 
-        qubit.coords = state_to_coords(bomb.quantum_state)
-        qubit.reLoadImage()
-        gate_pass.kill()
+            qubit.coords = state_to_coords(bomb.quantum_state)
+            qubit.reLoadImage()
+            gate_pass.kill()
 
-    if exploded:
-        screen.blit(explosion.surf, explosion.rect)
-    if winner:
-        screen.blit(win.surf, win.rect)
+        if exploded:
+            screen.blit(explosion.surf, explosion.rect)
+        if winner:
+            screen.blit(win.surf, win.rect)
 
-    pygame.display.flip()
+        pygame.display.flip()
 
-    clock.tick(50)
-    
+        clock.tick(50)
+        
+menu = pygame_menu.Menu('Welcome',1000, 500, theme=pygame_menu.themes.THEME_BLUE)
+
+menu.add.button('Play', game_main_loop)
+menu.add.button('Quit', pygame_menu.events.EXIT)
+
+menu.mainloop(screen)
 
 pygame.quit()
